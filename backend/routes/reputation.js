@@ -85,7 +85,13 @@ router.get('/:studentId', async (req, res) => {
             if (rec.type === 'workshop') certifications += 5;
         });
 
-        const score = Math.min(100, (attendance * 0.3) + (assignments * 0.3) + (internships * 0.2) + (certifications * 0.2));
+        // Cap each component at 100 so the weighted average is out of 100
+        attendance = Math.min(100, attendance);
+        assignments = Math.min(100, assignments);
+        internships = Math.min(100, internships);
+        certifications = Math.min(100, certifications);
+
+        const score = (attendance * 0.3) + (assignments * 0.3) + (internships * 0.2) + (certifications * 0.2);
 
         const reputation = await Reputation.findOneAndUpdate(
             { studentId: req.params.studentId },

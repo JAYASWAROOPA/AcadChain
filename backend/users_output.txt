@@ -1,0 +1,86 @@
+
+=== ADMIN (1) ===
+  ID:         698c20444eef5356db9953a3
+  Name:       Jaya
+  Email:      admin@uni.edu
+  Status:     active
+  ---
+
+=== FACULTY (3) ===
+  ID:         6989f63bd1a5acf0e719cc7f
+  Name:       jhjhjh
+  Email:      jjj@ee.com
+  Status:     active
+  ---
+  ID:         6989f8ac9c83d1c111405aa5
+  Name:       faculty
+  Email:      faculty@bit.com
+  Status:     active
+  ---
+  ID:         698c214f4eef5356db9953ff
+  Name:       faculty
+  Email:      faculty1@uni.edu
+  Status:     active
+  ---
+
+=== STUDENT (8) ===
+  ID:         6989f5a3d1a5acf0e719cc78
+  Name:       j
+  Email:      jh@ee.com
+  Status:     active
+  ---
+  ID:         6989f62bd1a5acf0e719cc7c
+  Name:       j
+  Email:      j@ee.com
+  Status:     active
+  ---
+  ID:         6989f76df5db521b660675dd
+  Name:       hjihgh
+  Email:      jhj@ttf.com
+  Status:     active
+  ---
+  ID:         6989f796f5db521b660675e1
+  Name:       jaya
+  Email:      jaya@bit.com
+  Status:     active
+  ---
+  ID:         6989f8339c83d1c111405a8e
+  Name:       nb
+  Email:      hh@hh.com
+  Status:     active
+  ---
+  ID:         6989f8599c83d1c111405a93
+  Name:       student
+  Email:      student@bit.com
+  Status:     active
+  ---
+  ID:         698c20f04eef5356db9953e6
+  Name:       Jayaswaroopa
+  Email:      jaya@uni.edu
+  Status:     active
+  ---
+  ID:         698c4747e03f05cc07a9fb8c
+  Name:       student
+  Email:      student1@uni.edu
+  Status:     active
+  University: BIT
+  Department: ECE
+  Year:       3rd Year
+  ---
+
+=== RECRUITER (3) ===
+  ID:         6989f9229c83d1c111405aba
+  Name:       recuter
+  Email:      recuter@bit.com
+  Status:     active
+  ---
+  ID:         698c21d84eef5356db99544e
+  Name:       recuter
+  Email:      hr@company.com
+  Status:     active
+  ---
+  ID:         698d55762816eae64cb92d93
+  Name:       Recuter
+  Email:      recruiter1@company.com
+  Status:     active
+  ---
