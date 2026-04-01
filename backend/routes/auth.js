@@ -40,7 +40,7 @@ router.post('/check-email', async (req, res) => {
 // @desc    Setup password for whitelisted users (First-time login)
 // @route   POST /api/auth/setup-password
 router.post('/setup-password', async (req, res) => {
-    const { email, password, name, university, department, academicYear, enrollmentNumber } = req.body;
+    const { email, password, name, university, department, academicYear, enrollmentNumber, mentorId } = req.body;
     try {
         const allowed = await AllowedUser.findOne({ email });
         if (!allowed) {
@@ -52,7 +52,18 @@ router.post('/setup-password', async (req, res) => {
             return res.status(400).json({ message: 'Account already setup. Please login.' });
         }
 
-        const user = await User.create({
+        // Mentor validation for students
+        if (allowed.role === 'student') {
+            if (!mentorId) {
+                return res.status(400).json({ message: 'Mentor selection is required for students.' });
+            }
+            const mentor = await User.findById(mentorId);
+            if (!mentor || mentor.role !== 'faculty') {
+                return res.status(400).json({ message: 'Invalid mentor selected.' });
+            }
+        }
+
+        const userData = {
             name,
             email,
             password,
@@ -61,7 +72,23 @@ router.post('/setup-password', async (req, res) => {
             department: department || allowed.department,
             academicYear: academicYear || allowed.academicYear,
             enrollmentNumber
-        });
+        };
+
+        if (allowed.role === 'student') {
+            userData.mentor = mentorId;
+        }
+
+        const user = new User(userData);
+        await user.save();
+
+        if (allowed.role === 'student') {
+            try {
+                await User.findByIdAndUpdate(mentorId, { $push: { mentees: user._id } });
+            } catch (err) {
+                await User.findByIdAndDelete(user._id);
+                throw new Error('Failed to associate mentor. Please try again.');
+            }
+        }
 
         res.status(201).json({
             _id: user._id,

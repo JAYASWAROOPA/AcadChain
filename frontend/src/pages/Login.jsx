@@ -30,6 +30,8 @@ export default function Login({ setUser }) {
 
     const navigate = useNavigate();
 
+    const [mentors, setMentors] = useState([]);
+
     const handleCheckEmail = async (e) => {
         e.preventDefault();
         setError('');
@@ -46,8 +48,15 @@ export default function Login({ setUser }) {
                     setSetupData({
                         university: data.university || '',
                         department: data.department || '',
-                        academicYear: data.academicYear || ''
+                        academicYear: data.academicYear || '',
+                        mentorId: ''
                     });
+                    try {
+                        const mRes = await api.get('/users/mentors');
+                        setMentors(mRes.data);
+                    } catch (err) {
+                        console.error('Failed to load mentors');
+                    }
                 }
             } else {
                 setStep('request');
@@ -271,6 +280,24 @@ export default function Login({ setUser }) {
                                                 placeholder="e.g. 3rd Year"
                                             />
                                         </div>
+                                    </div>
+                                    <div className="input-group">
+                                        <label className="input-label">Select Mentor</label>
+                                        <select
+                                            className="input-field"
+                                            value={setupData.mentorId}
+                                            onChange={(e) => setSetupData({ ...setupData, mentorId: e.target.value })}
+                                            required
+                                        >
+                                            <option value="">-- Choose a Mentor --</option>
+                                            {mentors.length === 0 ? (
+                                                <option value="" disabled>No mentors available</option>
+                                            ) : (
+                                                mentors.map(mentor => (
+                                                    <option key={mentor._id} value={mentor._id}>{mentor.name}</option>
+                                                ))
+                                            )}
+                                        </select>
                                     </div>
                                 </>
                             )}

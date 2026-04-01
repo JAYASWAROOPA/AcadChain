@@ -11,6 +11,15 @@ const UserSchema = new mongoose.Schema({
     enrollmentNumber: { type: String },
     academicYear: { type: String }, // e.g., "3rd Year"
     accountStatus: { type: String, enum: ['active', 'suspended', 'inactive'], default: 'active' },
+    mentor: { 
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: 'User',
+        required: function() { return this.role === 'student'; }
+    },
+    mentees: [{ 
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: 'User' 
+    }]
 }, { timestamps: true });
 
 UserSchema.pre('save', async function () {

@@ -11,10 +11,21 @@ export default function FacultyDashboard({ user, setUser }) {
         rejectedToday: 0,
         total: 0
     });
+    const [mentees, setMentees] = useState([]);
 
     useEffect(() => {
         fetchStats();
+        fetchMentees();
     }, []);
+
+    const fetchMentees = async () => {
+        try {
+            const res = await api.get('/users/mentees');
+            setMentees(res.data);
+        } catch (err) {
+            console.error('Failed to fetch mentees', err);
+        }
+    };
 
     const fetchStats = async () => {
         try {
@@ -91,7 +102,7 @@ export default function FacultyDashboard({ user, setUser }) {
                 </div>
 
                 {/* Actions */}
-                <div className="glass-card fade-in">
+                <div className="glass-card fade-in" style={{ marginBottom: 'var(--space-xl)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div>
                             <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem', marginBottom: 'var(--space-xs)' }}>
@@ -103,6 +114,47 @@ export default function FacultyDashboard({ user, setUser }) {
                             View Pending Requests
                         </button>
                     </div>
+                </div>
+
+                {/* My Mentees */}
+                <div className="glass-card fade-in">
+                    <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem', marginBottom: 'var(--space-md)' }}>
+                        My Mentees
+                    </h2>
+                    {mentees.length === 0 ? (
+                        <p style={{ color: 'var(--text-secondary)' }}>You have no mentees assigned yet.</p>
+                    ) : (
+                        <div style={{ overflowX: 'auto' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                <thead>
+                                    <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', textAlign: 'left' }}>
+                                        <th style={{ padding: 'var(--space-sm)' }}>Name</th>
+                                        <th style={{ padding: 'var(--space-sm)' }}>Email</th>
+                                        <th style={{ padding: 'var(--space-sm)' }}>Reputation</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {mentees.map(m => (
+                                        <tr key={m._id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                            <td style={{ padding: 'var(--space-sm)' }}>{m.name}</td>
+                                            <td style={{ padding: 'var(--space-sm)' }}>{m.email}</td>
+                                            <td style={{ padding: 'var(--space-sm)' }}>
+                                                <span style={{ 
+                                                    padding: '4px 8px', 
+                                                    background: 'rgba(124, 58, 237, 0.2)', 
+                                                    color: 'var(--primary)', 
+                                                    borderRadius: 'var(--radius-sm)',
+                                                    fontWeight: 'bold'
+                                                }}>
+                                                    {m.reputationScore}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
