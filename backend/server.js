@@ -43,7 +43,7 @@ app.use('/api/records', require('./routes/records'));
 app.use('/api/reputation', require('./routes/reputation'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/admin', require('./routes/admin'));
-app.use('/api/drives', require('./routes/drives'));
+app.use('/api/recruitment', require('./routes/recruitment'));
 
 // Debug: Print all registered routes
 /*

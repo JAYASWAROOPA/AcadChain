@@ -6,6 +6,8 @@ import ProfileModal from '../components/ProfileModal';
 
 export default function StudentDashboard({ user, setUser }) {
     const [reputation, setReputation] = useState(null);
+    const [studentProfile, setStudentProfile] = useState(user || null);
+    const [mentor, setMentor] = useState(user?.mentor || null);
     const [showProfileModal, setShowProfileModal] = useState(false);
     const [records, setRecords] = useState([]);
     const [drives, setDrives] = useState([]);
@@ -14,23 +16,33 @@ export default function StudentDashboard({ user, setUser }) {
 
     useEffect(() => {
         const fetchData = async () => {
+            if (!user || !user._id) {
+                setLoading(false);
+                navigate('/login');
+                return;
+            }
+
             try {
-                const [repRes, recRes, drivesRes] = await Promise.all([
+                const [profileRes, repRes, recRes, drivesRes] = await Promise.all([
+                    api.get('/users/me'),
                     api.get(`/reputation/${user._id}`),
                     api.get('/records/my'),
-                    api.get('/drives/student/eligible')
+                    api.get('/recruitment/student')
                 ]);
+
+                setStudentProfile(profileRes.data.user);
+                setMentor(profileRes.data.user.mentor);
                 setReputation(repRes.data);
                 setRecords(recRes.data);
                 setDrives(drivesRes.data);
             } catch (err) {
-                console.error('Failed to fetch dashboard data', err); // Added err to console.error
+                console.error('Failed to fetch dashboard data', err);
             } finally {
                 setLoading(false);
             }
         };
         fetchData();
-    }, [user._id]);
+    }, [user, navigate]);
 
     const verifiedRecords = records.filter(r => r.status === 'verified');
     const rejectedRecords = records.filter(r => r.status === 'rejected');
@@ -48,14 +60,22 @@ export default function StudentDashboard({ user, setUser }) {
 
     const handleApply = async (driveId) => {
         try {
-            await api.post(`/drives/${driveId}/apply`);
+            await api.post(`/recruitment/apply`, { recruitmentId: driveId });
             alert('Application submitted successfully!');
-            const { data } = await api.get('/drives/student/eligible');
+            const { data } = await api.get('/recruitment/student');
             setDrives(data);
         } catch (err) {
             alert(err.response?.data?.message || 'Failed to apply');
         }
     };
+
+    if (loading) {
+        return (
+            <div style={{ minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', background: 'var(--bg-primary)' }}>
+                <div style={{ color: 'var(--text-secondary)', fontSize: '1.25rem' }}>Loading dashboard...</div>
+            </div>
+        );
+    }
 
     return (
         <div style={{ minHeight: '100vh', padding: 'var(--space-xl)', background: 'var(--bg-primary)' }}>
@@ -67,7 +87,7 @@ export default function StudentDashboard({ user, setUser }) {
                             Student Dashboard
                         </h1>
                         <p style={{ color: 'var(--text-secondary)', marginTop: 'var(--space-xs)' }}>
-                            Welcome back, {user.name}
+                            Welcome back, {studentProfile?.name || user.name}
                         </p>
                     </div>
                     <button onClick={handleLogout} className="btn btn-secondary">
@@ -93,31 +113,35 @@ export default function StudentDashboard({ user, setUser }) {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
                             <div>
                                 <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Full Name</div>
-                                <div style={{ fontWeight: 600 }}>{user.name}</div>
+                                <div style={{ fontWeight: 600 }}>{studentProfile?.name || user.name}</div>
                             </div>
                             <div>
                                 <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Email</div>
-                                <div>{user.email}</div>
+                                <div>{studentProfile?.email || user.email}</div>
                             </div>
                             <div>
                                 <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>University</div>
-                                <div>{user.university || 'Not set'}</div>
+                                <div>{studentProfile?.university || user.university || 'Not set'}</div>
                             </div>
                             <div>
                                 <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Department</div>
-                                <div>{user.department || 'Not set'}</div>
+                                <div>{studentProfile?.department || user.department || 'Not set'}</div>
                             </div>
                             <div className="grid-2">
                                 <div>
                                     <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Year</div>
-                                    <div>{user.academicYear || 'N/A'}</div>
+                                    <div>{studentProfile?.academicYear || user.academicYear || 'N/A'}</div>
                                 </div>
                                 <div>
                                     <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Status</div>
                                     <span className="badge badge-verified" style={{ textTransform: 'capitalize' }}>
-                                        {user.accountStatus || 'Active'}
+                                        {studentProfile?.accountStatus || user.accountStatus || 'Active'}
                                     </span>
                                 </div>
+                            </div>
+                            <div>
+                                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Mentor</div>
+                                <div>{mentor ? `${mentor.name} (${mentor.email})` : 'Not assigned yet'}</div>
                             </div>
                         </div>
                     </div>
@@ -189,22 +213,26 @@ export default function StudentDashboard({ user, setUser }) {
                                                 {drive.status.toUpperCase()}
                                             </span>
                                         </div>
-                                        <div style={{ fontSize: '1.1rem', fontWeight: 600, marginTop: '4px' }}>{drive.jobTitle}</div>
+                                        <div style={{ fontSize: '1.1rem', fontWeight: 600, marginTop: '4px' }}>{drive.role}</div>
+                                        {drive.package && (
+                                            <div style={{ fontSize: '0.85rem', color: 'var(--accent)', fontWeight: 'bold' }}>
+                                                {drive.package}
+                                            </div>
+                                        )}
+                                        <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                            {drive.location || 'Remote'} • {drive.hiringType || 'Full-time'}
+                                        </div>
                                         <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', margin: 'var(--space-sm) 0', lineHeight: 1.4 }}>
-                                            {drive.jobDescription.substring(0, 100)}...
+                                            {drive.description?.substring(0, 100)}...
                                         </div>
 
                                         <div style={{ marginTop: 'var(--space-md)', padding: 'var(--space-sm)', background: 'rgba(255,255,255,0.03)', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
-                                                <Calendar size={14} /> Deadline: {new Date(drive.applicationEndDate).toLocaleDateString()}
+                                                <Calendar size={14} /> Deadline: {new Date(drive.lastDate).toLocaleDateString()}
                                             </div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: drive.isEligible ? 'var(--success)' : 'var(--error)' }}>
-                                                {drive.isEligible ? <Check size={14} /> : <AlertTriangle size={14} />}
-                                                {drive.isEligible ? 'Eligible to Apply' : 'Ineligible'}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--success)' }}>
+                                                <Check size={14} /> Eligible to Apply (Min Rep: {drive.minReputation})
                                             </div>
-                                            {!drive.isEligible && drive.reasons.map((reason, i) => (
-                                                <div key={i} style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '20px' }}>• {reason}</div>
-                                            ))}
                                         </div>
                                     </div>
 
@@ -218,7 +246,6 @@ export default function StudentDashboard({ user, setUser }) {
                                                 onClick={() => handleApply(drive._id)}
                                                 className="btn btn-primary"
                                                 style={{ width: '100%' }}
-                                                disabled={!drive.isEligible}
                                             >
                                                 Apply Now
                                             </button>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LogIn, Shield, ArrowRight, UserPlus, FileText } from 'lucide-react';
 import api from '../utils/api';
@@ -12,6 +12,8 @@ export default function Login({ setUser }) {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [loading, setLoading] = useState(false);
+    const [facultyList, setFacultyList] = useState([]);
+    const [facultySearch, setFacultySearch] = useState('');
 
     // Access Request Fields (Recruiter Specific)
     const [requestData, setRequestData] = useState({
@@ -25,10 +27,32 @@ export default function Login({ setUser }) {
     const [setupData, setSetupData] = useState({
         university: '',
         department: '',
-        academicYear: ''
+        academicYear: '',
+        mentorId: ''
     });
 
     const navigate = useNavigate();
+
+    // Fetch faculty list when student setup is selected
+    useEffect(() => {
+        if (step === 'setup' && role === 'student') {
+            fetchFacultyList();
+        }
+    }, [step, role]);
+
+    const fetchFacultyList = async () => {
+        try {
+            const { data } = await api.get('/auth/faculty');
+            setFacultyList(data);
+        } catch (err) {
+            console.error('Failed to fetch faculty:', err);
+        }
+    };
+
+    const filteredFaculty = facultyList.filter(f =>
+        f.name.toLowerCase().includes(facultySearch.toLowerCase()) ||
+        f.email.toLowerCase().includes(facultySearch.toLowerCase())
+    );
 
     const handleCheckEmail = async (e) => {
         e.preventDefault();
@@ -85,7 +109,10 @@ export default function Login({ setUser }) {
                 email,
                 password,
                 name,
-                ...setupData
+                university: setupData.university,
+                department: setupData.department,
+                academicYear: setupData.academicYear,
+                mentorId: role === 'student' ? setupData.mentorId : undefined
             });
             localStorage.setItem('user', JSON.stringify(data));
             setUser(data);
@@ -271,6 +298,54 @@ export default function Login({ setUser }) {
                                                 placeholder="e.g. 3rd Year"
                                             />
                                         </div>
+                                    </div>
+                                    <div className="input-group">
+                                        <label className="input-label">Faculty Mentor *</label>
+                                        <input
+                                            type="text"
+                                            className="input-field"
+                                            placeholder="Search faculty member..."
+                                            value={facultySearch}
+                                            onChange={(e) => setFacultySearch(e.target.value)}
+                                        />
+                                        {facultySearch && filteredFaculty.length > 0 && (
+                                            <div style={{
+                                                marginTop: 'var(--space-sm)',
+                                                border: '1px solid var(--border)',
+                                                borderRadius: 'var(--radius-md)',
+                                                maxHeight: '200px',
+                                                overflowY: 'auto',
+                                                background: 'rgba(255, 255, 255, 0.05)'
+                                            }}>
+                                                {filteredFaculty.map((faculty) => (
+                                                    <div
+                                                        key={faculty._id}
+                                                        onClick={() => {
+                                                            setSetupData({ ...setupData, mentorId: faculty._id });
+                                                            setFacultySearch(faculty.name);
+                                                        }}
+                                                        style={{
+                                                            padding: 'var(--space-sm)',
+                                                            borderBottom: '1px solid var(--border)',
+                                                            cursor: 'pointer',
+                                                            transition: 'background 0.2s',
+                                                            backgroundColor: setupData.mentorId === faculty._id ? 'rgba(124, 58, 237, 0.1)' : 'transparent'
+                                                        }}
+                                                        onHover={(e) => e.currentTarget.style.background = 'rgba(124, 58, 237, 0.05)'}
+                                                    >
+                                                        <div style={{ fontWeight: '500', marginBottom: '2px' }}>{faculty.name}</div>
+                                                        <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                                                            {faculty.department} • {faculty.email}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                        {setupData.mentorId && (
+                                            <div style={{ marginTop: 'var(--space-sm)', padding: 'var(--space-sm)', background: 'rgba(34, 197, 94, 0.1)', borderRadius: 'var(--radius-md)', color: 'var(--success)' }}>
+                                                ✓ Mentor selected: {facultySearch}
+                                            </div>
+                                        )}
                                     </div>
                                 </>
                             )}

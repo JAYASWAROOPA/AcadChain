@@ -40,7 +40,7 @@ router.post('/check-email', async (req, res) => {
 // @desc    Setup password for whitelisted users (First-time login)
 // @route   POST /api/auth/setup-password
 router.post('/setup-password', async (req, res) => {
-    const { email, password, name, university, department, academicYear, enrollmentNumber } = req.body;
+    const { email, password, name, university, department, academicYear, enrollmentNumber, mentorId } = req.body;
     try {
         const allowed = await AllowedUser.findOne({ email });
         if (!allowed) {
@@ -52,6 +52,24 @@ router.post('/setup-password', async (req, res) => {
             return res.status(400).json({ message: 'Account already setup. Please login.' });
         }
 
+        // Validate or auto-assign mentorId for students if allowed role is student
+        let validMentorId = null;
+        if (allowed.role === 'student') {
+            if (mentorId) {
+                const mentor = await User.findOne({ _id: mentorId, role: 'faculty' });
+                if (!mentor) {
+                    return res.status(400).json({ message: 'Invalid mentor selected' });
+                }
+                validMentorId = mentorId;
+            } else {
+                // If no mentor chosen, assign first available faculty automatically if exists
+                const defaultMentor = await User.findOne({ role: 'faculty' }).sort({ createdAt: 1 });
+                if (defaultMentor) {
+                    validMentorId = defaultMentor._id;
+                }
+            }
+        }
+
         const user = await User.create({
             name,
             email,
@@ -60,14 +78,19 @@ router.post('/setup-password', async (req, res) => {
             university: university || allowed.university,
             department: department || allowed.department,
             academicYear: academicYear || allowed.academicYear,
-            enrollmentNumber
+            enrollmentNumber,
+            mentorId: validMentorId
         });
+
+        const populatedUser = await User.findById(user._id).populate('mentorId', 'name email');
+        const mentorInfo = populatedUser.mentorId ? { name: populatedUser.mentorId.name, email: populatedUser.mentorId.email } : null;
 
         res.status(201).json({
             _id: user._id,
             name: user.name,
             email: user.email,
             role: user.role,
+            mentor: mentorInfo,
             token: generateToken(user._id),
         });
     } catch (error) {
@@ -101,6 +124,19 @@ router.post('/request-access', async (req, res) => {
     }
 });
 
+// @desc    Get all faculty members
+// @route   GET /api/auth/faculty
+router.get('/faculty', async (req, res) => {
+    try {
+        const faculty = await User.find({ role: 'faculty' })
+            .select('_id name email department university')
+            .exec();
+        res.json(faculty);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
 // @desc    Auth user & get token
 // @route   POST /api/auth/login
 router.post('/login', async (req, res) => {
@@ -111,11 +147,16 @@ router.post('/login', async (req, res) => {
             if (user.accountStatus === 'inactive' || user.accountStatus === 'suspended') {
                 return res.status(403).json({ message: 'Account is disabled. Contact admin.' });
             }
+
+            const populatedUser = await User.findById(user._id).populate('mentorId', 'name email');
+            const mentorInfo = populatedUser.mentorId ? { name: populatedUser.mentorId.name, email: populatedUser.mentorId.email } : null;
+
             res.json({
                 _id: user._id,
                 name: user.name,
                 email: user.email,
                 role: user.role,
+                mentor: mentorInfo,
                 token: generateToken(user._id),
             });
         } else {

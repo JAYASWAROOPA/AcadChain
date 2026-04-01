@@ -6,7 +6,6 @@ import api from '../utils/api';
 export default function RecruiterDashboard({ user, setUser }) {
     const [activeTab, setActiveTab] = useState('drives'); // drives, search
     const [drives, setDrives] = useState([]);
-    const [applications, setApplications] = useState([]);
     const [filters, setFilters] = useState({
         email: '',
         university: '',
@@ -17,6 +16,12 @@ export default function RecruiterDashboard({ user, setUser }) {
     const [results, setResults] = useState([]);
     const [loading, setLoading] = useState(false);
     const [hasSearched, setHasSearched] = useState(false);
+    
+    // New states for expandable drive view
+    const [expandedDriveId, setExpandedDriveId] = useState(null);
+    const [driveApplicants, setDriveApplicants] = useState({});
+    const [loadingApplicants, setLoadingApplicants] = useState(false);
+
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -26,16 +31,31 @@ export default function RecruiterDashboard({ user, setUser }) {
     const fetchRecruiterData = async () => {
         setLoading(true);
         try {
-            const [drivesRes, appsRes] = await Promise.all([
-                api.get('/drives/recruiter/my'),
-                api.get('/drives/recruiter/applications')
-            ]);
-            setDrives(drivesRes.data);
-            setApplications(appsRes.data);
+            const { data } = await api.get('/recruitment/company-drives');
+            setDrives(data);
         } catch (err) {
-            console.error('Failed to fetch recruiter data', err);
+            console.error('Failed to fetch recruiter drives', err);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleExpandDrive = async (driveId) => {
+        if (expandedDriveId === driveId) {
+            setExpandedDriveId(null);
+            return;
+        }
+        setExpandedDriveId(driveId);
+        if (!driveApplicants[driveId]) {
+            setLoadingApplicants(true);
+            try {
+                const { data } = await api.get(`/recruitment/company/${driveId}`);
+                setDriveApplicants(prev => ({ ...prev, [driveId]: data }));
+            } catch (err) {
+                console.error('Failed to fetch applicants', err);
+            } finally {
+                setLoadingApplicants(false);
+            }
         }
     };
 
@@ -95,64 +115,91 @@ export default function RecruiterDashboard({ user, setUser }) {
 
                 {activeTab === 'drives' && (
                     <div className="fade-in">
-                        <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 'var(--space-xl)' }}>
-                            {/* Left Column: Drives */}
-                            <div>
-                                <h2 style={{ marginBottom: 'var(--space-md)', fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
-                                    <CheckSquare size={20} color="var(--primary)" /> Managed Drives
-                                </h2>
-                                <div style={{ display: 'grid', gap: 'var(--space-md)' }}>
-                                    {drives.map(drive => (
-                                        <div key={drive._id} className="glass-card">
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                                <div>
-                                                    <div style={{ fontSize: '1.25rem', fontWeight: 600 }}>{drive.jobTitle}</div>
-                                                    <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{drive.companyName}</div>
+                        <h2 style={{ marginBottom: 'var(--space-md)', fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
+                            <CheckSquare size={20} color="var(--primary)" /> Managed Drives
+                        </h2>
+                        <div style={{ display: 'grid', gap: 'var(--space-lg)' }}>
+                            {loading ? (
+                                <div style={{ textAlign: 'center', color: 'var(--text-muted)' }}>Loading drives...</div>
+                            ) : drives.length === 0 ? (
+                                <div className="glass-card" style={{ textAlign: 'center', padding: 'var(--space-xl)', color: 'var(--text-muted)' }}>No assigned recruitment drives found.</div>
+                            ) : (
+                                drives.map(drive => (
+                                    <div key={drive._id} className="glass-card" style={{ padding: 'var(--space-lg)' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                            <div>
+                                                <div style={{ fontSize: '1.5rem', fontWeight: 600, color: 'var(--primary)' }}>{drive.companyName}</div>
+                                                <div style={{ fontSize: '1.25rem', marginTop: '4px' }}>{drive.role}</div>
+                                                <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: 'var(--space-xs)' }}>
+                                                    {drive.location || 'Remote'} • {drive.hiringType || 'Full-time'}
                                                 </div>
-                                                <span className={`badge badge-${drive.status === 'open' ? 'verified' : 'rejected'}`}>
-                                                    {drive.status.toUpperCase()}
-                                                </span>
                                             </div>
-                                            <div style={{ marginTop: 'var(--space-md)', display: 'flex', gap: 'var(--space-xl)', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                                                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                    <Users size={14} /> {drive.applicantCount || 0} Applicants
-                                                </span>
-                                                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                    <Clock size={14} /> Ends: {new Date(drive.applicationEndDate).toLocaleDateString()}
-                                                </span>
-                                            </div>
+                                            <span className={`badge badge-${drive.status === 'open' ? 'verified' : 'rejected'}`}>
+                                                {drive.status.toUpperCase()}
+                                            </span>
                                         </div>
-                                    ))}
-                                    {drives.length === 0 && <div className="glass-card" style={{ textAlign: 'center', padding: 'var(--space-xl)', color: 'var(--text-muted)' }}>No assigned drives.</div>}
-                                </div>
-                            </div>
+                                        <div style={{ marginTop: 'var(--space-md)', borderTop: '1px solid var(--border)', paddingTop: 'var(--space-sm)', display: 'flex', gap: 'var(--space-xl)', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                <Award size={16} /> Min Rep Score: {drive.minReputation}
+                                            </span>
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                <Clock size={16} /> Ends: {new Date(drive.lastDate).toLocaleDateString()}
+                                            </span>
+                                        </div>
+                                        
+                                        <div style={{ marginTop: 'var(--space-lg)' }}>
+                                            <button 
+                                                onClick={() => handleExpandDrive(drive._id)}
+                                                className="btn btn-primary"
+                                                style={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
+                                            >
+                                                <Users size={18} />
+                                                {expandedDriveId === drive._id ? 'Hide Applicants' : 'View Applied Candidates'}
+                                            </button>
+                                        </div>
 
-                            {/* Right Column: Recent Applications */}
-                            <div>
-                                <h2 style={{ marginBottom: 'var(--space-md)', fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
-                                    <Clock size={20} color="var(--secondary)" /> Recent Applications
-                                </h2>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
-                                    {applications.slice(0, 10).map(app => (
-                                        <div key={app._id} className="glass-card" style={{ padding: 'var(--space-sm)', cursor: 'pointer' }} onClick={() => navigate(`/recruiter/student/${app.studentId._id}?driveId=${app.driveId._id}`)}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <div>
-                                                    <div style={{ fontWeight: 600 }}>{app.studentId.name}</div>
-                                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                                                        Applied for: {app.driveId.jobTitle}
+                                        {expandedDriveId === drive._id && (
+                                            <div className="fade-in" style={{ marginTop: 'var(--space-lg)', background: 'var(--bg-secondary)', padding: 'var(--space-md)', borderRadius: 'var(--radius-md)' }}>
+                                                <h3 style={{ marginBottom: 'var(--space-md)', fontSize: '1.1rem' }}>Applied Candidates</h3>
+                                                {loadingApplicants ? (
+                                                    <div style={{ color: 'var(--text-muted)' }}>Fetching applicants...</div>
+                                                ) : (!driveApplicants[drive._id] || driveApplicants[drive._id].length === 0) ? (
+                                                    <div style={{ color: 'var(--text-muted)' }}>No candidates have applied yet.</div>
+                                                ) : (
+                                                    <div style={{ overflowX: 'auto' }}>
+                                                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9rem' }}>
+                                                            <thead>
+                                                                <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                                                                    <th style={{ padding: '12px 8px', color: 'var(--text-secondary)' }}>Student Name</th>
+                                                                    <th style={{ padding: '12px 8px', color: 'var(--text-secondary)' }}>Department</th>
+                                                                    <th style={{ padding: '12px 8px', color: 'var(--text-secondary)' }}>Reputation</th>
+                                                                    <th style={{ padding: '12px 8px', color: 'var(--text-secondary)' }}>Mentor</th>
+                                                                    <th style={{ padding: '12px 8px', color: 'var(--text-secondary)' }}>Status</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                {driveApplicants[drive._id].map(app => (
+                                                                    <tr key={app._id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                                                        <td style={{ padding: '12px 8px', fontWeight: '500' }}>{app.studentName}</td>
+                                                                        <td style={{ padding: '12px 8px', color: 'var(--text-muted)' }}>{app.department}</td>
+                                                                        <td style={{ padding: '12px 8px', color: 'var(--success)', fontWeight: 'bold' }}>{app.reputation}</td>
+                                                                        <td style={{ padding: '12px 8px', color: 'var(--text-muted)' }}>{app.mentorName}</td>
+                                                                        <td style={{ padding: '12px 8px' }}>
+                                                                            <span className={`badge badge-${app.status === 'applied' ? 'pending' : 'verified'}`} style={{ fontSize: '0.75rem' }}>
+                                                                                {app.status.toUpperCase()}
+                                                                            </span>
+                                                                        </td>
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
                                                     </div>
-                                                </div>
-                                                <ArrowRight size={16} color="var(--primary)" />
+                                                )}
                                             </div>
-                                            <div style={{ marginTop: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <span className="badge badge-pending" style={{ fontSize: '0.7rem' }}>{app.status}</span>
-                                                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{new Date(app.appliedDate).toLocaleDateString()}</span>
-                                            </div>
-                                        </div>
-                                    ))}
-                                    {applications.length === 0 && <div className="glass-card" style={{ textAlign: 'center', padding: 'var(--space-lg)', color: 'var(--text-muted)' }}>No applications yet.</div>}
-                                </div>
-                            </div>
+                                        )}
+                                    </div>
+                                ))
+                            )}
                         </div>
                     </div>
                 )}

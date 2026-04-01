@@ -10,6 +10,7 @@ const UserSchema = new mongoose.Schema({
     department: { type: String },
     enrollmentNumber: { type: String },
     academicYear: { type: String }, // e.g., "3rd Year"
+    mentorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Faculty mentor for students
     accountStatus: { type: String, enum: ['active', 'suspended', 'inactive'], default: 'active' },
 }, { timestamps: true });
 

@@ -2,17 +2,16 @@ const mongoose = require('mongoose');
 
 const RecruitmentDriveSchema = new mongoose.Schema({
     companyName: { type: String, required: true },
-    companyLogo: { type: String }, // URL or path
-    recruiterEmail: { type: String, required: true }, // Links to the recruiter
-    jobTitle: { type: String, required: true },
-    jobDescription: { type: String, required: true },
-    eligibilityCriteria: {
-        departments: [{ type: String }],
-        minReputationScore: { type: Number, default: 0 },
-        graduationYear: { type: String }
-    },
-    applicationStartDate: { type: Date, required: true },
-    applicationEndDate: { type: Date, required: true },
+    role: { type: String, required: true },
+    description: { type: String, required: true },
+    minReputation: { type: Number, required: true },
+    eligibleDepartments: [{ type: String }],
+    eligibleYear: [{ type: String }],
+    lastDate: { type: Date, required: true },
+    hiringType: { type: String }, // Internship / Full-time
+    package: { type: String },
+    location: { type: String },
+    recruiterEmail: { type: String }, // Optional to link explicitly to a recruiter if needed
     status: { type: String, enum: ['open', 'closed'], default: 'open' },
     createdByAdmin: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
 }, { timestamps: true });
