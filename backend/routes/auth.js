@@ -52,25 +52,18 @@ router.post('/setup-password', async (req, res) => {
             return res.status(400).json({ message: 'Account already setup. Please login.' });
         }
 
-        // Validate or auto-assign mentorId for students if allowed role is student
-        let validMentorId = null;
+        // Mentor validation for students
         if (allowed.role === 'student') {
-            if (mentorId) {
-                const mentor = await User.findOne({ _id: mentorId, role: 'faculty' });
-                if (!mentor) {
-                    return res.status(400).json({ message: 'Invalid mentor selected' });
-                }
-                validMentorId = mentorId;
-            } else {
-                // If no mentor chosen, assign first available faculty automatically if exists
-                const defaultMentor = await User.findOne({ role: 'faculty' }).sort({ createdAt: 1 });
-                if (defaultMentor) {
-                    validMentorId = defaultMentor._id;
-                }
+            if (!mentorId) {
+                return res.status(400).json({ message: 'Mentor selection is required for students.' });
+            }
+            const mentor = await User.findById(mentorId);
+            if (!mentor || mentor.role !== 'faculty') {
+                return res.status(400).json({ message: 'Invalid mentor selected.' });
             }
         }
 
-        const user = await User.create({
+        const userData = {
             name,
             email,
             password,
@@ -78,12 +71,27 @@ router.post('/setup-password', async (req, res) => {
             university: university || allowed.university,
             department: department || allowed.department,
             academicYear: academicYear || allowed.academicYear,
-            enrollmentNumber,
-            mentorId: validMentorId
-        });
+            enrollmentNumber
+        };
 
-        const populatedUser = await User.findById(user._id).populate('mentorId', 'name email');
-        const mentorInfo = populatedUser.mentorId ? { name: populatedUser.mentorId.name, email: populatedUser.mentorId.email } : null;
+        if (allowed.role === 'student') {
+            userData.mentor = mentorId;
+        }
+
+        const user = new User(userData);
+        await user.save();
+
+        if (allowed.role === 'student') {
+            try {
+                await User.findByIdAndUpdate(mentorId, { $push: { mentees: user._id } });
+            } catch (err) {
+                await User.findByIdAndDelete(user._id);
+                throw new Error('Failed to associate mentor. Please try again.');
+            }
+        }
+
+        const populatedUser = await User.findById(user._id).populate('mentor', 'name email');
+        const mentorInfo = populatedUser.mentor ? { name: populatedUser.mentor.name, email: populatedUser.mentor.email } : null;
 
         res.status(201).json({
             _id: user._id,

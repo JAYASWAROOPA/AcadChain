@@ -45,26 +45,12 @@ router.get('/', protect, authorize('admin'), async (req, res) => {
     }
 });
 
-// @desc Assign mentor to student by email
-// @route POST /api/users/assign-mentor
-router.post('/assign-mentor', protect, authorize('admin'), async (req, res) => {
+// @desc    Get all faculty members for mentor selection
+// @route   GET /api/users/mentors
+router.get('/mentors', async (req, res) => {
     try {
-        const { studentEmail, mentorEmail } = req.body;
-
-        const student = await User.findOne({ email: studentEmail, role: 'student' });
-        if (!student) return res.status(404).json({ message: 'Student not found' });
-
-        const mentor = await User.findOne({ email: mentorEmail, role: 'faculty' });
-        if (!mentor) return res.status(404).json({ message: 'Faculty mentor not found' });
-
-        student.mentorId = mentor._id;
-        await student.save();
-
-        res.json({
-            message: `Mentor assigned: ${mentor.email} -> ${student.email}`,
-            student: { email: student.email, name: student.name, mentorId: mentor._id },
-            mentor: { email: mentor.email, name: mentor.name }
-        });
+        const mentors = await User.find({ role: 'faculty' }).select('_id name');
+        res.json(mentors);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -80,7 +66,7 @@ router.get('/faculty/my-students', protect, authorize('faculty'), async (req, re
         const { search, department } = req.query;
 
         // Build filter for students
-        let filter = { mentorId: facultyId, role: 'student' };
+        let filter = { mentor: facultyId, role: 'student' };
         if (search) {
             filter.name = { $regex: search, $options: 'i' }; // Case-insensitive search
         }
@@ -130,7 +116,7 @@ router.get('/faculty/student-detail/:studentId', protect, authorize('faculty'), 
         const facultyId = req.user._id;
 
         // Verify the student is assigned to this faculty
-        const student = await User.findOne({ _id: studentId, mentorId: facultyId, role: 'student' });
+        const student = await User.findOne({ _id: studentId, mentor: facultyId, role: 'student' });
         if (!student) {
             return res.status(403).json({ message: 'Unauthorized. Student not assigned to you.' });
         }
@@ -220,6 +206,29 @@ router.get('/faculty/student-detail/:studentId', protect, authorize('faculty'), 
             allRecords: records,
             mentorAlerts: alerts
         });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// @desc    Get mentees for logged in faculty
+// @route   GET /api/users/mentees
+router.get('/mentees', protect, authorize('faculty'), async (req, res) => {
+    try {
+        const facultyId = req.user._id;
+        const mentees = await User.find({ mentor: facultyId }).select('name email');
+        
+        // Let's also fetch reputation score for each mentee
+        const Reputation = require('../models/Reputation');
+        const menteesWithRep = await Promise.all(mentees.map(async (mentee) => {
+            const rep = await Reputation.findOne({ studentId: mentee._id });
+            return {
+                ...mentee.toObject(),
+                reputationScore: rep ? rep.score : 0
+            };
+        }));
+        
+        res.json(menteesWithRep);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

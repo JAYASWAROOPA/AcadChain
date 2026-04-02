@@ -236,7 +236,21 @@ export default function FacultyDashboard({ user, setUser }) {
             <LogOut size={18} />
             Logout
           </button>
+                            View Pending Requests
         </div>
+
+        {/* Stats Overview */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+            gap: "var(--space-xl)",
+            marginBottom: "var(--space-2xl)",
+          }}
+        >
+          <div className="glass-card fade-in" style={{ textAlign: "center" }}>
+            <Clock
+              size={32}
 
         {/* Stats Overview */}
         <div

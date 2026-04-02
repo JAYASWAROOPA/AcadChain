@@ -12,8 +12,8 @@ export default function Login({ setUser }) {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [loading, setLoading] = useState(false);
-    const [facultyList, setFacultyList] = useState([]);
-    const [facultySearch, setFacultySearch] = useState('');
+    const [mentors, setMentors] = useState([]);
+    const [mentorSearch, setMentorSearch] = useState('');
 
     // Access Request Fields (Recruiter Specific)
     const [requestData, setRequestData] = useState({
@@ -36,22 +36,22 @@ export default function Login({ setUser }) {
     // Fetch faculty list when student setup is selected
     useEffect(() => {
         if (step === 'setup' && role === 'student') {
-            fetchFacultyList();
+            fetchMentors();
         }
     }, [step, role]);
 
-    const fetchFacultyList = async () => {
+    const fetchMentors = async () => {
         try {
-            const { data } = await api.get('/auth/faculty');
-            setFacultyList(data);
+            const { data } = await api.get('/users/mentors');
+            setMentors(data);
         } catch (err) {
-            console.error('Failed to fetch faculty:', err);
+            console.error('Failed to fetch mentors:', err);
         }
     };
 
-    const filteredFaculty = facultyList.filter(f =>
-        f.name.toLowerCase().includes(facultySearch.toLowerCase()) ||
-        f.email.toLowerCase().includes(facultySearch.toLowerCase())
+    const filteredMentors = mentors.filter(f =>
+        f.name.toLowerCase().includes(mentorSearch.toLowerCase()) ||
+        f.email.toLowerCase().includes(mentorSearch.toLowerCase())
     );
 
     const handleCheckEmail = async (e) => {
@@ -70,8 +70,15 @@ export default function Login({ setUser }) {
                     setSetupData({
                         university: data.university || '',
                         department: data.department || '',
-                        academicYear: data.academicYear || ''
+                        academicYear: data.academicYear || '',
+                        mentorId: ''
                     });
+                    try {
+                        const mRes = await api.get('/users/mentors');
+                        setMentors(mRes.data);
+                    } catch (err) {
+                        console.error('Failed to load mentors');
+                    }
                 }
             } else {
                 setStep('request');
@@ -305,10 +312,10 @@ export default function Login({ setUser }) {
                                             type="text"
                                             className="input-field"
                                             placeholder="Search faculty member..."
-                                            value={facultySearch}
-                                            onChange={(e) => setFacultySearch(e.target.value)}
+                                            value={mentorSearch}
+                                            onChange={(e) => setMentorSearch(e.target.value)}
                                         />
-                                        {facultySearch && filteredFaculty.length > 0 && (
+                                        {mentorSearch && filteredMentors.length > 0 && (
                                             <div style={{
                                                 marginTop: 'var(--space-sm)',
                                                 border: '1px solid var(--border)',
@@ -317,25 +324,25 @@ export default function Login({ setUser }) {
                                                 overflowY: 'auto',
                                                 background: 'rgba(255, 255, 255, 0.05)'
                                             }}>
-                                                {filteredFaculty.map((faculty) => (
+                                                {filteredMentors.map((mentor) => (
                                                     <div
-                                                        key={faculty._id}
+                                                        key={mentor._id}
                                                         onClick={() => {
-                                                            setSetupData({ ...setupData, mentorId: faculty._id });
-                                                            setFacultySearch(faculty.name);
+                                                            setSetupData({ ...setupData, mentorId: mentor._id });
+                                                            setMentorSearch(mentor.name);
                                                         }}
                                                         style={{
                                                             padding: 'var(--space-sm)',
                                                             borderBottom: '1px solid var(--border)',
                                                             cursor: 'pointer',
                                                             transition: 'background 0.2s',
-                                                            backgroundColor: setupData.mentorId === faculty._id ? 'rgba(124, 58, 237, 0.1)' : 'transparent'
+                                                            backgroundColor: setupData.mentorId === mentor._id ? 'rgba(124, 58, 237, 0.1)' : 'transparent'
                                                         }}
                                                         onHover={(e) => e.currentTarget.style.background = 'rgba(124, 58, 237, 0.05)'}
                                                     >
-                                                        <div style={{ fontWeight: '500', marginBottom: '2px' }}>{faculty.name}</div>
+                                                        <div style={{ fontWeight: '500', marginBottom: '2px' }}>{mentor.name}</div>
                                                         <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                                                            {faculty.department} • {faculty.email}
+                                                            {mentor.email}
                                                         </div>
                                                     </div>
                                                 ))}
@@ -343,7 +350,7 @@ export default function Login({ setUser }) {
                                         )}
                                         {setupData.mentorId && (
                                             <div style={{ marginTop: 'var(--space-sm)', padding: 'var(--space-sm)', background: 'rgba(34, 197, 94, 0.1)', borderRadius: 'var(--radius-md)', color: 'var(--success)' }}>
-                                                ✓ Mentor selected: {facultySearch}
+                                                ✓ Mentor selected: {mentorSearch}
                                             </div>
                                         )}
                                     </div>
