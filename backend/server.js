@@ -44,6 +44,7 @@ app.use('/api/reputation', require('./routes/reputation'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/recruitment', require('./routes/recruitment'));
+app.use('/api/reports', require('./routes/reports'));
 
 // Debug: Print all registered routes
 /*

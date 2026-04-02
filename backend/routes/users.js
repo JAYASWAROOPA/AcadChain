@@ -3,6 +3,7 @@ const router = express.Router();
 const User = require('../models/User');
 const AcademicRecord = require('../models/AcademicRecord');
 const Reputation = require('../models/Reputation');
+const MentorRemark = require('../models/MentorRemark');
 const { protect, authorize } = require('../middleware/authMiddleware');
 
 // @desc    Get current user profile (with mentor details if student)
@@ -110,7 +111,7 @@ router.get('/faculty/my-students', protect, authorize('faculty'), async (req, re
                         rejected,
                         total: records.length
                     },
-                    status: (reputation?.score || 0) < 50 || rejected > 2 ? 'Needs Attention' : 'Active'
+                    status: (reputation?.score || 0) >= 75 ? 'Excellent' : (reputation?.score || 0) >= 50 ? 'Good' : 'Needs Attention'
                 };
             })
         );
@@ -290,20 +291,102 @@ router.patch('/:id/disable', protect, authorize('admin'), async (req, res) => {
     }
 });
 
-// @desc    Change user role (Admin)
-// @route   PATCH /api/users/:id/role
-router.patch('/:id/role', protect, authorize('admin'), async (req, res) => {
+// @desc    Add mentor remark for a student
+// @route   POST /api/users/faculty/remark/:studentId
+router.post('/faculty/remark/:studentId', protect, authorize('faculty'), async (req, res) => {
     try {
-        const user = await User.findById(req.params.id);
-        if (!user) return res.status(404).json({ message: 'User not found' });
+        const { studentId } = req.params;
+        const mentorId = req.user._id;
+        const { type, title, content, isPrivate, priority } = req.body;
 
-        if (req.body.role) {
-            user.role = req.body.role;
-            await user.save();
-            res.json({ message: `User role updated to ${user.role}` });
-        } else {
-            res.status(400).json({ message: 'Role is required' });
+        // Verify the student is assigned to this faculty
+        const student = await User.findOne({ _id: studentId, mentorId, role: 'student' });
+        if (!student) {
+            return res.status(403).json({ message: 'Unauthorized. Student not assigned to you.' });
         }
+
+        const remark = await MentorRemark.create({
+            studentId,
+            mentorId,
+            type,
+            title,
+            content,
+            isPrivate: isPrivate || false,
+            priority: priority || 'medium'
+        });
+
+        res.status(201).json(remark);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// @desc    Get mentor remarks for a student
+// @route   GET /api/users/faculty/remarks/:studentId
+router.get('/faculty/remarks/:studentId', protect, authorize('faculty'), async (req, res) => {
+    try {
+        const { studentId } = req.params;
+        const mentorId = req.user._id;
+
+        // Verify the student is assigned to this faculty
+        const student = await User.findOne({ _id: studentId, mentorId, role: 'student' });
+        if (!student) {
+            return res.status(403).json({ message: 'Unauthorized. Student not assigned to you.' });
+        }
+
+        const remarks = await MentorRemark.find({ studentId })
+            .populate('mentorId', 'name')
+            .sort({ createdAt: -1 });
+
+        res.json(remarks);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// @desc    Update mentor remark
+// @route   PATCH /api/users/faculty/remark/:remarkId
+router.patch('/faculty/remark/:remarkId', protect, authorize('faculty'), async (req, res) => {
+    try {
+        const { remarkId } = req.params;
+        const mentorId = req.user._id;
+        const updates = req.body;
+
+        // Find remark and verify ownership
+        const remark = await MentorRemark.findOne({ _id: remarkId, mentorId });
+        if (!remark) {
+            return res.status(404).json({ message: 'Remark not found or unauthorized.' });
+        }
+
+        // Update allowed fields
+        const allowedUpdates = ['type', 'title', 'content', 'isPrivate', 'priority'];
+        allowedUpdates.forEach(field => {
+            if (updates[field] !== undefined) {
+                remark[field] = updates[field];
+            }
+        });
+
+        await remark.save();
+        res.json(remark);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// @desc    Delete mentor remark
+// @route   DELETE /api/users/faculty/remark/:remarkId
+router.delete('/faculty/remark/:remarkId', protect, authorize('faculty'), async (req, res) => {
+    try {
+        const { remarkId } = req.params;
+        const mentorId = req.user._id;
+
+        // Find and delete remark, verify ownership
+        const remark = await MentorRemark.findOneAndDelete({ _id: remarkId, mentorId });
+        if (!remark) {
+            return res.status(404).json({ message: 'Remark not found or unauthorized.' });
+        }
+
+        res.json({ message: 'Remark deleted successfully' });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

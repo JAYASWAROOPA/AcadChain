@@ -17,6 +17,7 @@
     "dotenv": "^16.6.1",
     "ethers": "^6.16.0",
     "express": "^5.2.1",
+    "html-pdf-node": "^1.0.8",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.1.6",
     "multer": "^2.0.2"

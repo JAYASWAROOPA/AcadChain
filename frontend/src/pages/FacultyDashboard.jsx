@@ -14,6 +14,9 @@ import {
   Building2,
   ChevronUp,
   Check,
+  Download,
+  FileText,
+  History,
 } from "lucide-react";
 import api from "../utils/api";
 
@@ -34,6 +37,17 @@ export default function FacultyDashboard({ user, setUser }) {
   const [loading, setLoading] = useState(false);
   const [drives, setDrives] = useState([]);
   const [expandedDriveId, setExpandedDriveId] = useState(null);
+  const [timelineData, setTimelineData] = useState(null);
+  const [showTimeline, setShowTimeline] = useState(false);
+  const [remarks, setRemarks] = useState([]);
+  const [showRemarkForm, setShowRemarkForm] = useState(false);
+  const [remarkForm, setRemarkForm] = useState({
+    type: 'feedback',
+    title: '',
+    content: '',
+    isPrivate: false,
+    priority: 'medium'
+  });
 
   useEffect(() => {
     fetchStats();
@@ -105,8 +119,69 @@ export default function FacultyDashboard({ user, setUser }) {
       );
       setStudentDetail(data);
       setSelectedStudent(studentId);
+      setShowTimeline(false); // Reset timeline when switching students
+      fetchRemarks(studentId); // Fetch remarks for this student
     } catch (err) {
       console.error("Failed to fetch student detail:", err);
+    }
+  };
+
+  const generateReport = async (studentId) => {
+    try {
+      const response = await api.get(`/reports/student/${studentId}`, {
+        responseType: 'blob'
+      });
+
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `student_report_${studentId}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Failed to generate report:", err);
+      alert("Failed to generate report. Please try again.");
+    }
+  };
+
+  const fetchTimeline = async (studentId) => {
+    try {
+      const { data } = await api.get(`/reports/timeline/${studentId}`);
+      setTimelineData(data);
+      setShowTimeline(true);
+    } catch (err) {
+      console.error("Failed to fetch timeline:", err);
+      alert("Failed to load timeline. Please try again.");
+    }
+  };
+
+  const fetchRemarks = async (studentId) => {
+    try {
+      const { data } = await api.get(`/users/faculty/remarks/${studentId}`);
+      setRemarks(data);
+    } catch (err) {
+      console.error("Failed to fetch remarks:", err);
+    }
+  };
+
+  const submitRemark = async (studentId) => {
+    try {
+      await api.post(`/users/faculty/remark/${studentId}`, remarkForm);
+      setRemarkForm({
+        type: 'feedback',
+        title: '',
+        content: '',
+        isPrivate: false,
+        priority: 'medium'
+      });
+      setShowRemarkForm(false);
+      fetchRemarks(studentId); // Refresh remarks
+    } catch (err) {
+      console.error("Failed to submit remark:", err);
+      alert("Failed to submit remark. Please try again.");
     }
   };
 
@@ -117,9 +192,10 @@ export default function FacultyDashboard({ user, setUser }) {
   };
 
   const getStatusColor = (status) => {
-    if (status === "Active") return "var(--success)";
+    if (status === "Excellent") return "var(--success)";
+    if (status === "Good") return "var(--accent)";
     if (status === "Needs Attention") return "var(--error)";
-    return "var(--accent)";
+    return "var(--text-secondary)";
   };
 
   return (
@@ -553,15 +629,35 @@ export default function FacultyDashboard({ user, setUser }) {
                     className="glass-card fade-in"
                     style={{ maxHeight: "600px", overflowY: "auto" }}
                   >
-                    <h2
-                      style={{
-                        fontFamily: "var(--font-display)",
-                        fontSize: "1.5rem",
-                        marginBottom: "var(--space-lg)",
-                      }}
-                    >
-                      {studentDetail.student.name}
-                    </h2>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-lg)" }}>
+                      <h2
+                        style={{
+                          fontFamily: "var(--font-display)",
+                          fontSize: "1.5rem",
+                          margin: 0,
+                        }}
+                      >
+                        {studentDetail.student.name}
+                      </h2>
+                      <div style={{ display: "flex", gap: "var(--space-sm)" }}>
+                        <button
+                          onClick={() => generateReport(selectedStudent)}
+                          className="btn btn-primary"
+                          style={{ padding: "8px 16px", fontSize: "0.9rem" }}
+                        >
+                          <Download size={16} style={{ marginRight: "var(--space-xs)" }} />
+                          Generate Report
+                        </button>
+                        <button
+                          onClick={() => fetchTimeline(selectedStudent)}
+                          className="btn btn-secondary"
+                          style={{ padding: "8px 16px", fontSize: "0.9rem" }}
+                        >
+                          <History size={16} style={{ marginRight: "var(--space-xs)" }} />
+                          View Timeline
+                        </button>
+                      </div>
+                    </div>
 
                     {/* Mentor Alerts */}
                     {studentDetail.mentorAlerts.length > 0 && (
@@ -870,6 +966,230 @@ export default function FacultyDashboard({ user, setUser }) {
                           )}
                         </div>
                       )}
+                    </div>
+
+                    {/* Timeline View */}
+                    {showTimeline && timelineData && (
+                      <div style={{ marginTop: "var(--space-lg)" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-md)" }}>
+                          <h3 style={{ fontSize: "1.2rem", fontWeight: "600", margin: 0 }}>
+                            <History size={18} style={{ display: "inline-block", marginRight: "var(--space-sm)" }} />
+                            Activity Timeline
+                          </h3>
+                          <button
+                            onClick={() => setShowTimeline(false)}
+                            style={{ background: "transparent", border: "none", color: "var(--text-secondary)", cursor: "pointer" }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                        <div style={{ maxHeight: "300px", overflowY: "auto" }}>
+                          {timelineData.timeline.length === 0 ? (
+                            <p style={{ color: "var(--text-secondary)", textAlign: "center", padding: "var(--space-lg)" }}>
+                              No activity yet
+                            </p>
+                          ) : (
+                            timelineData.timeline.map((event, index) => (
+                              <div
+                                key={index}
+                                style={{
+                                  display: "flex",
+                                  alignItems: "flex-start",
+                                  padding: "var(--space-md)",
+                                  marginBottom: "var(--space-sm)",
+                                  background: "rgba(255, 255, 255, 0.02)",
+                                  borderRadius: "var(--radius-md)",
+                                  borderLeft: `4px solid ${event.statusColor}`
+                                }}
+                              >
+                                <div style={{ flex: 1 }}>
+                                  <div style={{ display: "flex", alignItems: "center", gap: "var(--space-sm)", marginBottom: "var(--space-xs)" }}>
+                                    <span
+                                      style={{
+                                        padding: "2px 8px",
+                                        borderRadius: "10px",
+                                        fontSize: "0.75rem",
+                                        fontWeight: "600",
+                                        background: event.statusColor + "20",
+                                        color: event.statusColor
+                                      }}
+                                    >
+                                      {event.type}
+                                    </span>
+                                    <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+                                      {new Date(event.date).toLocaleDateString()}
+                                    </span>
+                                  </div>
+                                  <h4 style={{ margin: "var(--space-xs) 0", fontSize: "0.95rem", fontWeight: "600" }}>
+                                    {event.title}
+                                  </h4>
+                                  <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+                                    {event.description}
+                                  </p>
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Mentor Remarks */}
+                    <div style={{ marginTop: "var(--space-lg)" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-md)" }}>
+                        <h3 style={{ fontSize: "1.2rem", fontWeight: "600", margin: 0 }}>
+                          <FileText size={18} style={{ display: "inline-block", marginRight: "var(--space-sm)" }} />
+                          Mentor Remarks ({remarks.length})
+                        </h3>
+                        <button
+                          onClick={() => setShowRemarkForm(!showRemarkForm)}
+                          className="btn btn-secondary"
+                          style={{ padding: "6px 12px", fontSize: "0.85rem" }}
+                        >
+                          {showRemarkForm ? 'Cancel' : '+ Add Remark'}
+                        </button>
+                      </div>
+
+                      {/* Add Remark Form */}
+                      {showRemarkForm && (
+                        <div style={{ background: "rgba(255, 255, 255, 0.02)", padding: "var(--space-md)", borderRadius: "var(--radius-md)", marginBottom: "var(--space-md)" }}>
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-md)", marginBottom: "var(--space-md)" }}>
+                            <div className="input-group">
+                              <label className="input-label">Type</label>
+                              <select
+                                className="input-field"
+                                value={remarkForm.type}
+                                onChange={(e) => setRemarkForm({...remarkForm, type: e.target.value})}
+                              >
+                                <option value="feedback">Feedback</option>
+                                <option value="warning">Warning</option>
+                                <option value="praise">Praise</option>
+                                <option value="suggestion">Suggestion</option>
+                              </select>
+                            </div>
+                            <div className="input-group">
+                              <label className="input-label">Priority</label>
+                              <select
+                                className="input-field"
+                                value={remarkForm.priority}
+                                onChange={(e) => setRemarkForm({...remarkForm, priority: e.target.value})}
+                              >
+                                <option value="low">Low</option>
+                                <option value="medium">Medium</option>
+                                <option value="high">High</option>
+                              </select>
+                            </div>
+                          </div>
+                          <div className="input-group" style={{ marginBottom: "var(--space-md)" }}>
+                            <label className="input-label">Title</label>
+                            <input
+                              type="text"
+                              className="input-field"
+                              value={remarkForm.title}
+                              onChange={(e) => setRemarkForm({...remarkForm, title: e.target.value})}
+                              placeholder="Brief title for the remark"
+                            />
+                          </div>
+                          <div className="input-group" style={{ marginBottom: "var(--space-md)" }}>
+                            <label className="input-label">Content</label>
+                            <textarea
+                              className="input-field"
+                              rows="3"
+                              value={remarkForm.content}
+                              onChange={(e) => setRemarkForm({...remarkForm, content: e.target.value})}
+                              placeholder="Detailed feedback or remark"
+                            />
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-md)" }}>
+                            <label style={{ display: "flex", alignItems: "center", gap: "var(--space-xs)", fontSize: "0.9rem" }}>
+                              <input
+                                type="checkbox"
+                                checked={remarkForm.isPrivate}
+                                onChange={(e) => setRemarkForm({...remarkForm, isPrivate: e.target.checked})}
+                              />
+                              Private (only visible to you and admin)
+                            </label>
+                            <button
+                              onClick={() => submitRemark(selectedStudent)}
+                              className="btn btn-primary"
+                              style={{ padding: "8px 16px", fontSize: "0.9rem" }}
+                              disabled={!remarkForm.title || !remarkForm.content}
+                            >
+                              Submit Remark
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Remarks List */}
+                      <div style={{ maxHeight: "200px", overflowY: "auto" }}>
+                        {remarks.length === 0 ? (
+                          <p style={{ color: "var(--text-secondary)", textAlign: "center", padding: "var(--space-lg)" }}>
+                            No remarks yet
+                          </p>
+                        ) : (
+                          remarks.map((remark) => (
+                            <div
+                              key={remark._id}
+                              style={{
+                                padding: "var(--space-md)",
+                                marginBottom: "var(--space-sm)",
+                                background: "rgba(255, 255, 255, 0.02)",
+                                borderRadius: "var(--radius-md)",
+                                borderLeft: `4px solid ${
+                                  remark.priority === 'high' ? 'var(--error)' :
+                                  remark.priority === 'medium' ? 'var(--accent)' : 'var(--success)'
+                                }`
+                              }}
+                            >
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "var(--space-xs)" }}>
+                                <div>
+                                  <span
+                                    style={{
+                                      padding: "2px 8px",
+                                      borderRadius: "10px",
+                                      fontSize: "0.75rem",
+                                      fontWeight: "600",
+                                      background: remark.type === 'praise' ? 'rgba(34, 197, 94, 0.2)' :
+                                                 remark.type === 'warning' ? 'rgba(239, 68, 68, 0.2)' :
+                                                 remark.type === 'suggestion' ? 'rgba(251, 146, 60, 0.2)' : 'rgba(124, 58, 237, 0.2)',
+                                      color: remark.type === 'praise' ? 'var(--success)' :
+                                             remark.type === 'warning' ? 'var(--error)' :
+                                             remark.type === 'suggestion' ? 'var(--accent)' : 'var(--primary)'
+                                    }}
+                                  >
+                                    {remark.type}
+                                  </span>
+                                  {remark.isPrivate && (
+                                    <span
+                                      style={{
+                                        padding: "2px 6px",
+                                        borderRadius: "8px",
+                                        fontSize: "0.7rem",
+                                        fontWeight: "600",
+                                        background: "rgba(239, 68, 68, 0.1)",
+                                        color: "var(--error)",
+                                        marginLeft: "var(--space-xs)"
+                                      }}
+                                    >
+                                      PRIVATE
+                                    </span>
+                                  )}
+                                </div>
+                                <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+                                  {new Date(remark.createdAt).toLocaleDateString()}
+                                </span>
+                              </div>
+                              <h4 style={{ margin: "var(--space-xs) 0", fontSize: "0.95rem", fontWeight: "600" }}>
+                                {remark.title}
+                              </h4>
+                              <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+                                {remark.content}
+                              </p>
+                            </div>
+                          ))
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}
