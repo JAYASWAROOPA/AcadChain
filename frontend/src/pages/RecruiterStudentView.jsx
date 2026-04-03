@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Download, ExternalLink, CheckCircle, Copy, FileText, UserCheck, Briefcase, XCircle, UserPlus, Clock } from 'lucide-react';
-import api from '../utils/api';
+import api, { API_URL } from '../utils/api';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
@@ -266,7 +266,7 @@ export default function RecruiterStudentView() {
                                                 </div>
                                                 {rec.proofFile && (
                                                     <a
-                                                        href={`http://localhost:5000/api/records/file/${rec._id}`}
+                                                        href={`${API_URL}/records/file/${rec._id}`}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
                                                         style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--primary)', textDecoration: 'none', fontSize: '0.85rem', fontWeight: 600 }}

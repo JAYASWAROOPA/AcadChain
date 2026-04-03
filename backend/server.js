@@ -23,7 +23,6 @@ app.use(express.json());
 // Request logging middleware
 app.use((req, res, next) => {
     const log = `${new Date().toISOString()} - ${req.method} ${req.url}\n`;
-    fs.appendFileSync(path.join(__dirname, 'server.log'), log);
     console.log(log);
     next();
 });
@@ -65,7 +64,7 @@ routeInfo += '------------------------\n';
 console.log(routeInfo);
 fs.appendFileSync(path.join(__dirname, 'server.log'), routeInfo);
 */
-// app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// // app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.get('/', (req, res) => {
     res.send('AcadChain API is running...');
@@ -74,13 +73,16 @@ app.get('/', (req, res) => {
 // Error handling middleware
 app.use((err, req, res, next) => {
     const errorLog = `${new Date().toISOString()} - ERROR: ${err.message}\n${err.stack}\n`;
-    fs.appendFileSync(path.join(__dirname, 'server.log'), errorLog);
-    console.error(err.stack);
+    console.error(errorLog);
     res.status(err.status || 500).json({
         message: err.message || 'Internal Server Error',
         error: process.env.NODE_ENV === 'development' ? err : {}
     });
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+    const PORT = process.env.PORT || 5000;
+    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+}
+
+module.exports = app;
