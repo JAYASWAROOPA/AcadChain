@@ -9,6 +9,12 @@ const generateToken = (id) => {
     return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
 };
 
+// @desc    Health check endpoint
+// @route   GET /api/auth/health
+router.get('/health', (req, res) => {
+    res.json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
 // @desc    Check if email is whitelisted or exists
 // @route   POST /api/auth/check-email
 router.post('/check-email', async (req, res) => {
