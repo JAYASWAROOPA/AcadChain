@@ -13,14 +13,25 @@ const generateToken = (id) => {
 // @route   POST /api/auth/check-email
 router.post('/check-email', async (req, res) => {
     const { email } = req.body;
+
+    if (!email || typeof email !== 'string') {
+        return res.status(400).json({ message: 'Email is required' });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+
     try {
-        const user = await User.findOne({ email });
+        console.log(`Checking email: ${normalizedEmail}`);
+
+        const user = await User.findOne({ email: normalizedEmail }).select('role');
         if (user) {
+            console.log(`User found: ${normalizedEmail}, role: ${user.role}`);
             return res.json({ exists: true, role: user.role });
         }
 
-        const allowed = await AllowedUser.findOne({ email });
+        const allowed = await AllowedUser.findOne({ email: normalizedEmail }).select('role university department academicYear');
         if (allowed) {
+            console.log(`Whitelisted user found: ${normalizedEmail}, role: ${allowed.role}`);
             return res.json({
                 exists: false,
                 whitelisted: true,
@@ -31,8 +42,13 @@ router.post('/check-email', async (req, res) => {
             });
         }
 
+        console.log(`Email not found: ${normalizedEmail}`);
         res.json({ exists: false, whitelisted: false });
     } catch (error) {
+        console.error('Check email error:', error);
+        res.status(500).json({ message: 'Server error during verification' });
+    }
+});
         res.status(500).json({ message: error.message });
     }
 });
@@ -41,13 +57,14 @@ router.post('/check-email', async (req, res) => {
 // @route   POST /api/auth/setup-password
 router.post('/setup-password', async (req, res) => {
     const { email, password, name, university, department, academicYear, enrollmentNumber, mentorId } = req.body;
+    const normalizedEmail = email.toLowerCase().trim();
     try {
-        const allowed = await AllowedUser.findOne({ email });
+        const allowed = await AllowedUser.findOne({ email: normalizedEmail });
         if (!allowed) {
             return res.status(403).json({ message: 'Email not whitelisted. Access denied.' });
         }
 
-        const userExists = await User.findOne({ email });
+        const userExists = await User.findOne({ email: normalizedEmail });
         if (userExists) {
             return res.status(400).json({ message: 'Account already setup. Please login.' });
         }
@@ -110,16 +127,17 @@ router.post('/setup-password', async (req, res) => {
 // @route   POST /api/auth/request-access
 router.post('/request-access', async (req, res) => {
     const { email, requestedRole, name, companyName, website, linkedin, reason } = req.body;
+    const normalizedEmail = email.toLowerCase().trim();
     try {
-        const existingRequest = await AccessRequest.findOne({ email, status: 'pending' });
+        const existingRequest = await AccessRequest.findOne({ email: normalizedEmail, status: 'pending' });
         if (existingRequest) {
             return res.status(400).json({ message: 'Access request already pending for this email.' });
         }
 
         await AccessRequest.create({
-            email,
+            email: normalizedEmail,
             requestedRole,
-            name, // Note: Added name to schema if needed, but schema didn't have it. Let's assume reason/role is enough or add it.
+            name,
             companyName,
             website,
             linkedin,
@@ -149,15 +167,16 @@ router.get('/faculty', async (req, res) => {
 // @route   POST /api/auth/login
 router.post('/login', async (req, res) => {
     const { email, password } = req.body;
+    const normalizedEmail = email.toLowerCase().trim();
     try {
-        const user = await User.findOne({ email });
+        const user = await User.findOne({ email: normalizedEmail });
         if (user && (await user.comparePassword(password))) {
             if (user.accountStatus === 'inactive' || user.accountStatus === 'suspended') {
                 return res.status(403).json({ message: 'Account is disabled. Contact admin.' });
             }
 
-            const populatedUser = await User.findById(user._id).populate('mentorId', 'name email');
-            const mentorInfo = populatedUser.mentorId ? { name: populatedUser.mentorId.name, email: populatedUser.mentorId.email } : null;
+            const populatedUser = await User.findById(user._id).populate('mentor', 'name email');
+            const mentorInfo = populatedUser.mentor ? { name: populatedUser.mentor.name, email: populatedUser.mentor.email } : null;
 
             res.json({
                 _id: user._id,
@@ -169,7 +188,7 @@ router.post('/login', async (req, res) => {
             });
         } else {
             // Check if whitelisted but not setup
-            const allowed = await AllowedUser.findOne({ email });
+            const allowed = await AllowedUser.findOne({ email: normalizedEmail });
             if (allowed) {
                 return res.status(401).json({
                     message: 'Account not setup. Please use the setup flow.',
