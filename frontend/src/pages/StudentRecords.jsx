@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FileText, Trash2, Eye, ArrowLeft, RotateCcw } from 'lucide-react';
-import api, { API_URL } from '../utils/api';
+import api from '../utils/api';
 
 export default function StudentRecords({ user }) {
     const navigate = useNavigate();
@@ -126,7 +126,7 @@ export default function StudentRecords({ user }) {
                                                 <td style={{ padding: 'var(--space-md)', textAlign: 'right' }}>
                                                     <div style={{ display: 'flex', gap: 'var(--space-xs)', justifyContent: 'flex-end' }}>
                                                         {record.proofFile && (
-                                                            <a href={`${API_URL}/records/file/${record._id}`} target="_blank" rel="noopener noreferrer" className="btn btn-secondary" style={{ padding: '4px 8px' }} title="View Proof">
+                                                            <a href={`http://localhost:5000/api/records/file/${record._id}`} target="_blank" rel="noopener noreferrer" className="btn btn-secondary" style={{ padding: '4px 8px' }} title="View Proof">
                                                                 <Eye size={14} />
                                                             </a>
                                                         )}
