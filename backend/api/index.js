@@ -1,12 +1,13 @@
 const express = require('express');
-const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
+const connectDB = require('../db');
+
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
-// Fallback configuration if .env fails to load
+// Ensure environment variables are set
 if (!process.env.JWT_SECRET) {
     console.warn('WARNING: JWT_SECRET not found in environment. Using fallback secret.');
     process.env.JWT_SECRET = 'acadchain_fallback_secret_key_999';
@@ -17,6 +18,19 @@ if (!process.env.MONGO_URI) {
 }
 
 const app = express();
+
+// Initialize database connection for serverless
+let dbConnected = false;
+const initDB = async () => {
+    if (!dbConnected) {
+        try {
+            await connectDB();
+            dbConnected = true;
+        } catch (error) {
+            console.error('Failed to connect to database:', error);
+        }
+    }
+};
 app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
@@ -55,14 +69,21 @@ app.use((req, res, next) => {
     next();
 });
 
+// Initialize database on every request (for serverless compatibility)
+app.use(async (req, res, next) => {
+    try {
+        await initDB();
+        next();
+    } catch (error) {
+        console.error('Database initialization error:', error);
+        next();
+    }
+});
+
 console.log('Environment Configuration:');
 console.log('JWT_SECRET Status:', process.env.JWT_SECRET ? 'Active' : 'Missing');
+console.log('MONGO_URI Status:', process.env.MONGO_URI ? 'Configured' : 'Missing');
 console.log('Starting server...');
-
-// Database connection
-mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log('MongoDB Connected'))
-    .catch(err => console.log('MongoDB Connection Error:', err));
 
 // Routes
 app.use('/api/auth', require('../routes/auth'));
