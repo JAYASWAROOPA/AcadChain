@@ -55,9 +55,7 @@ router.post('/check-email', async (req, res) => {
         res.status(500).json({ message: 'Server error during verification' });
     }
 });
-        res.status(500).json({ message: error.message });
-    }
-});
+
 
 // @desc    Setup password for whitelisted users (First-time login)
 // @route   POST /api/auth/setup-password
